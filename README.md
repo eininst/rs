@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/ivpusic/grpool.svg?branch=master)](https://github.com/infinitasx/easi-go-aws)
 
-`RS` 基于Redis Streams 实现的golang版本消息队列
+`RS` Is a message queue for redis streams
 
 ## Installation
 ```text
