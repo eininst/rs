@@ -1,13 +1,19 @@
 package main
 
 import (
-	"fmt"
 	"github.com/eininst/rs"
 	examples "github.com/eininst/rs/examples/redis"
 )
 
 func main() {
 	cli := rs.New(examples.GetRedis())
+
+	cli.Send(&rs.Msg{
+		Stream: "simple",
+		Body: rs.H{
+			"title": "this a simple message",
+		},
+	})
 
 	cli.Send(&rs.Msg{
 		Stream: "test",
@@ -22,6 +28,4 @@ func main() {
 			"order_id": 100,
 		},
 	})
-
-	fmt.Println(123)
 }
