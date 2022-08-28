@@ -13,7 +13,7 @@ go get -u github.com/eininst/rs
 ### Init
 
 ```go
-rcli := rs.New(rcli *redis.Client)
+cli := rs.New(rcli *redis.Client)
 ```
 
 
