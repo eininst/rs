@@ -5,6 +5,9 @@ import (
 	"github.com/eininst/flog"
 	"github.com/eininst/rs"
 	examples "github.com/eininst/rs/examples/redis"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -50,6 +53,15 @@ func main() {
 			flog.Info("received order_status_change msg:", orderId)
 		},
 	})
+
+	go func() {
+		quit := make(chan os.Signal)
+		signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+		<-quit
+
+		cli.Shutdown()
+		flog.Info("Graceful Shutdown")
+	}()
 
 	cli.Listen()
 }
