@@ -60,7 +60,7 @@ func main() {
 		<-quit
 
 		cli.Shutdown()
-		flog.Info("Graceful Shutdown")
+		flog.Info("Graceful shutdown")
 	}()
 
 	cli.Listen()
