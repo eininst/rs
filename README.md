@@ -15,7 +15,7 @@ cli := rs.New(rcli *redis.Client)
 ```
 
 
-### Send a message
+## Send a message
 ```go
 cli.Send(&rs.Msg{
     Stream: "simple",
@@ -39,7 +39,7 @@ cli.Send(&rs.Msg{
 })
 ```
 
-### Receive message
+## Receive message
 ```go
 package main
 
@@ -121,7 +121,7 @@ go func() {
 cli.Listen()
 ```
 
-See [examples](/examples)
+> See [examples](/examples)
 
 ## License
 *MIT*
