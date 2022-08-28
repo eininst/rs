@@ -90,7 +90,6 @@ func main() {
 		Handler: func(ctx *rs.Context) {
 			defer ctx.Ack()
 			orderId := ctx.Msg.Values["order_id"]
-
 			flog.Info("received order_status_change msg:", orderId)
 		},
 	})
