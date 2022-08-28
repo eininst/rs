@@ -10,8 +10,6 @@ go get -u github.com/eininst/rs
 ```
 ## ⚡ Quickstart
 
-### Init
-
 ```go
 cli := rs.New(rcli *redis.Client)
 ```
