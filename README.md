@@ -22,14 +22,14 @@ rcli := rs.New(rcli *redis.Client)
 cli.Send(&rs.Msg{
     Stream: "test",
     Body: rs.H{
-    "something": "hello word",
+        "something": "hello word",
     },
 })
 
 cli.Send(&rs.Msg{
     Stream: "order_status_change",
     Body: rs.H{
-    "order_id": 100,
+        "order_id": 100,
     },
 })
 ```
