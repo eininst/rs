@@ -71,7 +71,7 @@ type H map[string]interface{}
 
 type Client interface {
 	Send(stream string, msg map[string]interface{}) error
-	Receive(rctx *Rctx)
+	Receive(rctx Rctx)
 	Listen()
 	Shutdown()
 }
@@ -83,7 +83,7 @@ type cancelWrapper struct {
 type client struct {
 	Rcli *redis.Client
 	Config
-	receiveList []*Rctx
+	receiveList []Rctx
 	cancelList  []*cancelWrapper
 	stop        chan int
 }
@@ -138,7 +138,7 @@ func New(rcli *redis.Client, configs ...Config) Client {
 	return &client{
 		Rcli:        rcli,
 		Config:      cfg,
-		receiveList: []*Rctx{},
+		receiveList: []Rctx{},
 		stop:        make(chan int, 1),
 	}
 }
@@ -166,7 +166,7 @@ func (c client) Send(stream string, msg map[string]interface{}) error {
 	}).Err()
 }
 
-func (c *client) Receive(rctx *Rctx) {
+func (c *client) Receive(rctx Rctx) {
 	if rctx.Stream == "" {
 		flog.Panic("Receive Stream cannot be empty")
 	}
@@ -233,7 +233,7 @@ func (c *client) Shutdown() {
 	}
 }
 
-func (c *client) listenStream(ctx context.Context, pool *grpool.Pool, consumerId string, rctx *Rctx) {
+func (c *client) listenStream(ctx context.Context, pool *grpool.Pool, consumerId string, rctx Rctx) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -283,7 +283,7 @@ func (c *client) listenStream(ctx context.Context, pool *grpool.Pool, consumerId
 		}
 	}
 }
-func (c *client) retries(ctx context.Context, pool *grpool.Pool, consumerId string, rctx *Rctx) {
+func (c *client) retries(ctx context.Context, pool *grpool.Pool, consumerId string, rctx Rctx) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -362,7 +362,7 @@ func (c *client) retries(ctx context.Context, pool *grpool.Pool, consumerId stri
 	}
 }
 
-func (c *client) runInfoLog(rctx *Rctx) {
+func (c *client) runInfoLog(rctx Rctx) {
 	name := strings.Replace(rctx.Stream, c.Prefix, "", -1)
 	name = fmt.Sprintf("%s%s%s", flog.Green, name, flog.Reset)
 	if rctx.Group != "" {

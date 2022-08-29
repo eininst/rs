@@ -71,7 +71,7 @@ func main() {
 		},
 	})
 
-	cli.Receive(&rs.Rctx{
+	cli.Receive(rs.Rctx{
 		Stream: "simple",
 		Handler: func(ctx *rs.Context) {
 			defer ctx.Ack()
@@ -80,7 +80,7 @@ func main() {
 		},
 	})
 
-	cli.Receive(&rs.Rctx{
+	cli.Receive(rs.Rctx{
 		Stream:     "test",
 		Group:      "group1",
 		MaxRetries: nil, //no retries
@@ -91,7 +91,7 @@ func main() {
 		},
 	})
 
-	cli.Receive(&rs.Rctx{
+	cli.Receive(rs.Rctx{
 		Stream:     "test",
 		Group:      "group2",
 		MaxRetries: nil, //no retries
@@ -102,7 +102,7 @@ func main() {
 		},
 	})
 
-	cli.Receive(&rs.Rctx{
+	cli.Receive(rs.Rctx{
 		Stream:     "order_status_change",
 		Work:       rs.Int(20),
 		Timeout:    time.Second * 120,
