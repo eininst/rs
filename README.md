@@ -21,7 +21,7 @@ cli := rs.New(rcli *redis.Client)
 ```go
 cli := rs.New(examples.GetRedis(), rs.Config{
     Sender: rs.SenderConfig{
-        //Evicts entries as long as the stream's length exceeds the specified threshold
+    //Evicts entries as long as the stream's length exceeds the specified threshold
         MaxLen: rs.Int64(100),
     },
 })
@@ -60,70 +60,70 @@ import (
 )
 
 func main() {
-	cli := rs.New(examples.GetRedis(), rs.Config{
-		//default configuration for receiving messages
-		Receive: rs.ReceiveConfig{
-			Work:       rs.Int(10),       //Per stream goroutine number,
-			Timeout:    time.Second * 20, //Retry after timeout
-			MaxRetries: rs.Int64(3),      //Max retries
-			ReadCount:  rs.Int64(50),     //XReadGroup Count
-			BlockTime:  time.Second * 20, //XReadGroup Block Time
-		},
-	})
+    cli := rs.New(examples.GetRedis(), rs.Config{
+        //default configuration for receiving messages
+        Receive: rs.ReceiveConfig{
+            Work:       rs.Int(10),       //Per stream goroutine number,
+            Timeout:    time.Second * 20, //Retry after timeout
+            MaxRetries: rs.Int64(3),      //Max retries
+            ReadCount:  rs.Int64(50),     //XReadGroup Count
+            BlockTime:  time.Second * 20, //XReadGroup Block Time
+        },
+    })
 
-	cli.Receive(rs.Rctx{
-		Stream: "simple",
-		Handler: func(ctx *rs.Context) {
+    cli.Receive(rs.Rctx{
+        Stream: "simple",
+        Handler: func(ctx *rs.Context) {
+            defer ctx.Ack()
+            jstr, _ := json.Marshal(ctx.Msg.Values)
+            flog.Info("received simple msg:", string(jstr))
+        },
+    })
+
+    cli.Receive(rs.Rctx{
+        Stream:     "test",
+        Group:      "group1",
+        MaxRetries: nil, //no retries
+        Handler: func(ctx *rs.Context) {
+            defer ctx.Ack()
+            jstr, _ := json.Marshal(ctx.Msg.Values)
+            flog.Info("received test msg:", string(jstr))
+        },
+    })
+
+    cli.Receive(rs.Rctx{
+        Stream:     "test",
+        Group:      "group2",
+        MaxRetries: nil, //no retries
+        Handler: func(ctx *rs.Context) {
+            defer ctx.Ack()
+            jstr, _ := json.Marshal(ctx.Msg.Values)
+            flog.Info("received test msg:", string(jstr))
+        },
+    })
+
+    cli.Receive(rs.Rctx{
+        Stream:     "order_status_change",
+        Work:       rs.Int(20),
+        Timeout:    time.Second * 120,
+        MaxRetries: rs.Int64(6),
+        Handler: func(ctx *rs.Context) {
 			defer ctx.Ack()
-			jstr, _ := json.Marshal(ctx.Msg.Values)
-			flog.Info("received simple msg:", string(jstr))
-		},
-	})
+            orderId := ctx.Msg.Values["order_id"]
+            flog.Info("received order_status_change msg:", orderId)
+        },
+    })
 
-	cli.Receive(rs.Rctx{
-		Stream:     "test",
-		Group:      "group1",
-		MaxRetries: nil, //no retries
-		Handler: func(ctx *rs.Context) {
-			defer ctx.Ack()
-			jstr, _ := json.Marshal(ctx.Msg.Values)
-			flog.Info("received test msg:", string(jstr))
-		},
-	})
+    go func() {
+        quit := make(chan os.Signal)
+        signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+        <-quit
 
-	cli.Receive(rs.Rctx{
-		Stream:     "test",
-		Group:      "group2",
-		MaxRetries: nil, //no retries
-		Handler: func(ctx *rs.Context) {
-			defer ctx.Ack()
-			jstr, _ := json.Marshal(ctx.Msg.Values)
-			flog.Info("received test msg:", string(jstr))
-		},
-	})
+        cli.Shutdown()
+        flog.Info("Graceful shutdown")
+    }()
 
-	cli.Receive(rs.Rctx{
-		Stream:     "order_status_change",
-		Work:       rs.Int(20),
-		Timeout:    time.Second * 120,
-		MaxRetries: rs.Int64(6),
-		Handler: func(ctx *rs.Context) {
-			defer ctx.Ack()
-			orderId := ctx.Msg.Values["order_id"]
-			flog.Info("received order_status_change msg:", orderId)
-		},
-	})
-
-	go func() {
-		quit := make(chan os.Signal)
-		signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
-		<-quit
-
-		cli.Shutdown()
-		flog.Info("Graceful shutdown")
-	}()
-
-	cli.Listen()
+    cli.Listen()
 }
 ```
 
