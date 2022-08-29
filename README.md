@@ -4,7 +4,7 @@
 
 `RS` Is a message queue for redis streams
 
-## Installation
+## ⚙ Installation
 
 ```text
 go get -u github.com/eininst/rs
