@@ -4,6 +4,10 @@ github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f h1:lO4WD4F/r
 github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f/go.mod h1:cuUVRXasLTGF7a8hSLbxyZXjz+1KgoB3wDUb6vlszIc=
 github.com/eininst/flog v0.0.0-20220828205205-5f37179db006 h1:BQdZrFTKUi1JRjF+Cdc3oQsw2Z7trsaGArWqBk4Y2Ys=
 github.com/eininst/flog v0.0.0-20220828205205-5f37179db006/go.mod h1:PV7P+0WRiNj3etQlnG32G/XCpNeB+Bs9ksEzaCAO5qw=
+github.com/eininst/flog v0.0.0-20220829130313-777a57e5d830 h1:ZELTOkQ66Nhqezo8ZtKFGeHCxe/5lobV6OlhMq+O9Zk=
+github.com/eininst/flog v0.0.0-20220829130313-777a57e5d830/go.mod h1:PV7P+0WRiNj3etQlnG32G/XCpNeB+Bs9ksEzaCAO5qw=
+github.com/eininst/flog v0.0.0-20220829130704-7e04d7300ac6 h1:xgvN1oFLJ57DL+7Ib0IrjJ7EfDJvHvEMbJ8GwSAGODA=
+github.com/eininst/flog v0.0.0-20220829130704-7e04d7300ac6/go.mod h1:PV7P+0WRiNj3etQlnG32G/XCpNeB+Bs9ksEzaCAO5qw=
 github.com/go-redis/redis/v8 v8.11.5 h1:AcZZR7igkdvfVmQTPnu9WE37LRrO/YrBH5zWyjDC0oI=
 github.com/go-redis/redis/v8 v8.11.5/go.mod h1:gREzHqY1hg6oD9ngVRbLStwAWKhA0FEgq8Jd4h5lpwo=
 github.com/google/uuid v1.3.0 h1:t6JiXgmwXMjEs8VusXIJk2BXHsn+wx8BZdTaoZ5fu7I=

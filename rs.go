@@ -17,10 +17,9 @@ import (
 var runLog flog.Interface
 
 func init() {
-	f := fmt.Sprintf("${time} %s[RS]%s ${msg}  ${fields}", flog.Green, flog.Reset)
+	f := fmt.Sprintf("${time} %s[RS]%s ${msg} # ${fields}", flog.Green, flog.Reset)
 	runLog = flog.New(flog.Config{
-		Format:    f,
-		MsgMinLen: -1,
+		Format: f,
 	})
 }
 
@@ -375,5 +374,5 @@ func (c *client) runInfoLog(rctx *Rctx) {
 		"Timeout":    rctx.Timeout,
 		"ReadCount":  *rctx.ReadCount,
 		"BlockTime":  rctx.BlockTime,
-	}).Infof("Stream \"%s\" working... ", name)
+	}).Infof("Stream \"%s\" working...", name)
 }

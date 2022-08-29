@@ -128,14 +128,15 @@ func main() {
 ```
 
 ```text
-2022/08/29 20:25:22 [RS] Stream "simple" working...   BlockTime=20s MaxRetries=3 ReadCount=50 Timeout=20s Work=10
-2022/08/29 20:25:22 [RS] Stream "test:group1" working...   BlockTime=20s MaxRetries=3 ReadCount=50 Timeout=20s Work=10
-2022/08/29 20:25:22 [RS] Stream "test:group2" working...   BlockTime=20s MaxRetries=3 ReadCount=50 Timeout=20s Work=10
-2022/08/29 20:25:22 [RS] Stream "order_status_change" working...   BlockTime=20s MaxRetries=6 ReadCount=50 Timeout=2m0s Work=20
-2022/08/29 20:25:27 [INFO] receive.go:31 received simple msg: {"title":"this a simple message"} 
-2022/08/29 20:25:27 [INFO] receive.go:53 received test msg: {"something":"hello word"}  
-2022/08/29 20:25:27 [INFO] receive.go:42 received test msg: {"something":"hello word"}  
-2022/08/29 20:25:27 [INFO] receive.go:65 received order_status_change msg: 100 
+2022/08/29 21:10:04 [RS] Stream "simple" working... # BlockTime=20s MaxRetries=3 ReadCount=50 Timeout=20s Work=10
+2022/08/29 21:10:04 [RS] Stream "test:group1" working... # BlockTime=20s MaxRetries=3 ReadCount=50 Timeout=20s Work=10
+2022/08/29 21:10:04 [RS] Stream "test:group2" working... # BlockTime=20s MaxRetries=3 ReadCount=50 Timeout=20s Work=10
+2022/08/29 21:10:04 [RS] Stream "order_status_change" working... # BlockTime=20s MaxRetries=6 ReadCount=50 Timeout=2m0s Work=20
+2022/08/29 21:10:20 [INFO] receive.go:31 received simple msg: {"title":"this a simple message"}
+2022/08/29 21:10:20 [INFO] receive.go:53 received test msg: {"something":"hello word"}
+2022/08/29 21:10:20 [INFO] receive.go:42 received test msg: {"something":"hello word"}
+2022/08/29 21:10:20 [INFO] receive.go:65 received order_status_change msg: 100
+
 ```
 
 > Graceful Shutdown
