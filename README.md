@@ -14,7 +14,7 @@ go get -u github.com/eininst/rs
 cli := rs.New(rcli *redis.Client)
 ```
 > You can customize it all you want:
-```text
+```go
 cli := rs.New(examples.GetRedis(), rs.Config{
     Sender: rs.SenderConfig{
         //Evicts entries as long as the stream's length exceeds the specified threshold
