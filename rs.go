@@ -11,12 +11,10 @@ import (
 	"github.com/ivpusic/grpool"
 	"math/big"
 	"strings"
-	"sync"
 	"time"
 )
 
 var runLog flog.Interface
-var once sync.Once
 
 func init() {
 	f := fmt.Sprintf("${time} %s[RS]%s ${msg} ${fields}", flog.Green, flog.Reset)
@@ -60,14 +58,19 @@ type ReceiveConfig struct {
 	Timeout    time.Duration
 }
 
+type SenderConfig struct {
+	MaxLen *int64
+}
+
 type Config struct {
 	Prefix  string
+	Sender  SenderConfig
 	Receive ReceiveConfig
 }
 type H map[string]interface{}
 
 type Client interface {
-	Send(msg *Msg) error
+	Send(stream string, msg map[string]interface{}) error
 	Receive(rctx *Rctx)
 	Listen()
 	Shutdown()
@@ -85,23 +88,30 @@ type client struct {
 	stop        chan int
 }
 
-func New(rcli *redis.Client, configs ...Config) Client {
-	prefix := "RS_"
-	receiveCfg := ReceiveConfig{
+var (
+	DefaultPrefix     = "RS_"
+	DefaultReceiveCfg = ReceiveConfig{
 		Work:       Int(10),
 		ReadCount:  Int64(20),
 		BlockTime:  time.Second * 15,
 		MaxRetries: Int64(3),
 		Timeout:    time.Second * 300,
 	}
+	DefaultSenderConfig = SenderConfig{MaxLen: nil}
+)
+
+func New(rcli *redis.Client, configs ...Config) Client {
 	var cfg Config
 	if len(configs) > 0 {
 		cfg = configs[0]
 		if cfg.Prefix == "" {
-			cfg.Prefix = prefix
+			cfg.Prefix = DefaultPrefix
+		}
+		if cfg.Sender == (SenderConfig{}) {
+			cfg.Sender = DefaultSenderConfig
 		}
 		if cfg.Receive == (ReceiveConfig{}) {
-			cfg.Receive = receiveCfg
+			cfg.Receive = DefaultReceiveCfg
 		}
 		if cfg.Receive.Work == nil {
 			flog.Fatal(flog.Red + "ReceiveConfig Work cannot be empty")
@@ -120,8 +130,9 @@ func New(rcli *redis.Client, configs ...Config) Client {
 		}
 	} else {
 		cfg = Config{
-			Prefix:  prefix,
-			Receive: receiveCfg,
+			Prefix:  DefaultPrefix,
+			Sender:  DefaultSenderConfig,
+			Receive: DefaultReceiveCfg,
 		}
 	}
 	return &client{
@@ -131,22 +142,27 @@ func New(rcli *redis.Client, configs ...Config) Client {
 		stop:        make(chan int, 1),
 	}
 }
-func (c client) Send(msg *Msg) error {
-	ml := msg.MaxLen
-	if ml == nil {
-		ml = Int64(5000)
-	}
-	if msg.Body == nil {
-		errMsg := fmt.Sprintf("Msg body Cannot be empty by Stream \"%s\"", msg.Stream)
+func (c client) Send(stream string, msg map[string]interface{}) error {
+	if msg == nil {
+		errMsg := fmt.Sprintf("Send msg Cannot be empty by Stream \"%s\"", stream)
 		flog.Error(errMsg)
 		return errors.New(errMsg)
 	}
+	if len(msg) == 0 {
+		errMsg := fmt.Sprintf("Send msg Cannot be empty by Stream \"%s\"", stream)
+		flog.Error(errMsg)
+		return errors.New(errMsg)
+	}
+	ml := int64(0)
+	if c.Sender.MaxLen != nil {
+		ml = *c.Sender.MaxLen
+	}
 	return c.Rcli.XAdd(context.TODO(), &redis.XAddArgs{
-		Stream: fmt.Sprintf("%s%s", c.Prefix, msg.Stream),
-		MaxLen: *ml,
+		Stream: fmt.Sprintf("%s%s", c.Prefix, stream),
+		MaxLen: ml,
 		Approx: true,
 		ID:     "*",
-		Values: msg.Body,
+		Values: msg,
 	}).Err()
 }
 
@@ -181,37 +197,35 @@ func (c *client) Receive(rctx *Rctx) {
 }
 
 func (c *client) Listen() {
-	once.Do(func() {
-		ctx := context.Background()
-		for _, v := range c.receiveList {
-			rctx := v
+	ctx := context.Background()
+	for _, v := range c.receiveList {
+		rctx := v
+		go func() {
+			c.Rcli.XGroupCreateMkStream(ctx, rctx.Stream, rctx.Group, "0")
+			pool := grpool.NewPool(*rctx.Work, *rctx.Work)
+			consumerId := uuid.NewString()
+			ctxls, cancel := context.WithCancel(ctx)
+
+			c.cancelList = append(c.cancelList, &cancelWrapper{
+				cancelFunc: cancel,
+				pool:       pool,
+			})
+
+			runLog.With(flog.Fields{
+				"Work":       *rctx.Work,
+				"MaxRetries": *rctx.MaxRetries,
+				"Timeout":    rctx.Timeout,
+				"ReadCount":  *rctx.ReadCount,
+				"BlockTime":  rctx.BlockTime,
+			}).Infof("Stream \"%s\" working... ", strings.Replace(rctx.Stream, c.Prefix, "", -1))
+
 			go func() {
-				c.Rcli.XGroupCreateMkStream(ctx, rctx.Stream, rctx.Group, "0")
-				pool := grpool.NewPool(*rctx.Work, *rctx.Work)
-				consumerId := uuid.NewString()
-				ctxls, cancel := context.WithCancel(ctx)
-
-				c.cancelList = append(c.cancelList, &cancelWrapper{
-					cancelFunc: cancel,
-					pool:       pool,
-				})
-
-				runLog.With(flog.Fields{
-					"Work":       *rctx.Work,
-					"MaxRetries": *rctx.MaxRetries,
-					"Timeout":    rctx.Timeout,
-					"ReadCount":  *rctx.ReadCount,
-					"BlockTime":  rctx.BlockTime,
-				}).Infof("Stream \"%s\" working... ", strings.Replace(rctx.Stream, c.Prefix, "", -1))
-
-				go func() {
-					c.retries(ctxls, pool, consumerId, rctx)
-				}()
-				c.listenStream(ctxls, pool, consumerId, rctx)
+				c.retries(ctxls, pool, consumerId, rctx)
 			}()
-		}
-		<-c.stop
-	})
+			c.listenStream(ctxls, pool, consumerId, rctx)
+		}()
+	}
+	<-c.stop
 }
 
 func (c *client) Shutdown() {

@@ -6,26 +6,22 @@ import (
 )
 
 func main() {
-	cli := rs.New(examples.GetRedis())
-
-	cli.Send(&rs.Msg{
-		Stream: "simple",
-		Body: rs.H{
-			"title": "this a simple message",
+	cli := rs.New(examples.GetRedis(), rs.Config{
+		Sender: rs.SenderConfig{
+			//Evicts entries as long as the stream's length exceeds the specified threshold
+			MaxLen: rs.Int64(100),
 		},
 	})
 
-	cli.Send(&rs.Msg{
-		Stream: "test",
-		Body: rs.H{
-			"something": "hello word",
-		},
+	cli.Send("simple", rs.H{
+		"title": "this a simple message",
 	})
 
-	cli.Send(&rs.Msg{
-		Stream: "order_status_change",
-		Body: rs.H{
-			"order_id": 100,
-		},
+	cli.Send("test", rs.H{
+		"something": "hello word",
+	})
+
+	cli.Send("order_status_change", rs.H{
+		"order_id": 100,
 	})
 }
