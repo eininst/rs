@@ -17,9 +17,10 @@ import (
 var runLog flog.Interface
 
 func init() {
-	f := fmt.Sprintf("${time} %s[RS]%s ${msg} ${fields}", flog.Green, flog.Reset)
+	f := fmt.Sprintf("${time} %s[RS]%s ${msg}  ${fields}", flog.Green, flog.Reset)
 	runLog = flog.New(flog.Config{
-		Format: f,
+		Format:    f,
+		MsgMinLen: -1,
 	})
 }
 
@@ -200,6 +201,8 @@ func (c *client) Listen() {
 	ctx := context.Background()
 	for _, v := range c.receiveList {
 		rctx := v
+
+		c.runInfoLog(rctx)
 		go func() {
 			c.Rcli.XGroupCreateMkStream(ctx, rctx.Stream, rctx.Group, "0")
 			pool := grpool.NewPool(*rctx.Work, *rctx.Work)
@@ -211,19 +214,12 @@ func (c *client) Listen() {
 				pool:       pool,
 			})
 
-			runLog.With(flog.Fields{
-				"Work":       *rctx.Work,
-				"MaxRetries": *rctx.MaxRetries,
-				"Timeout":    rctx.Timeout,
-				"ReadCount":  *rctx.ReadCount,
-				"BlockTime":  rctx.BlockTime,
-			}).Infof("Stream \"%s\" working... ", strings.Replace(rctx.Stream, c.Prefix, "", -1))
-
 			go func() {
 				c.retries(ctxls, pool, consumerId, rctx)
 			}()
 			c.listenStream(ctxls, pool, consumerId, rctx)
 		}()
+
 	}
 	<-c.stop
 }
@@ -365,4 +361,19 @@ func (c *client) retries(ctx context.Context, pool *grpool.Pool, consumerId stri
 			}
 		}
 	}
+}
+
+func (c *client) runInfoLog(rctx *Rctx) {
+	name := strings.Replace(rctx.Stream, c.Prefix, "", -1)
+	name = fmt.Sprintf("%s%s%s", flog.Green, name, flog.Reset)
+	if rctx.Group != "" {
+		name += fmt.Sprintf(":%s%s%s", flog.White, rctx.Group, flog.Reset)
+	}
+	runLog.With(flog.Fields{
+		"Work":       *rctx.Work,
+		"MaxRetries": *rctx.MaxRetries,
+		"Timeout":    rctx.Timeout,
+		"ReadCount":  *rctx.ReadCount,
+		"BlockTime":  rctx.BlockTime,
+	}).Infof("Stream \"%s\" working... ", name)
 }

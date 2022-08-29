@@ -34,6 +34,18 @@ func main() {
 
 	cli.Receive(&rs.Rctx{
 		Stream:     "test",
+		Group:      "group1",
+		MaxRetries: nil, //no retries
+		Handler: func(ctx *rs.Context) {
+			defer ctx.Ack()
+			jstr, _ := json.Marshal(ctx.Msg.Values)
+			flog.Info("received test msg:", string(jstr))
+		},
+	})
+
+	cli.Receive(&rs.Rctx{
+		Stream:     "test",
+		Group:      "group2",
 		MaxRetries: nil, //no retries
 		Handler: func(ctx *rs.Context) {
 			defer ctx.Ack()
