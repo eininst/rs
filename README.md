@@ -5,25 +5,30 @@
 `RS` Is a message queue for redis streams
 
 ## Installation
+
 ```text
 go get -u github.com/eininst/rs
 ```
+
 ## ⚡ Quickstart
 
 ```go
 cli := rs.New(rcli *redis.Client)
 ```
+
 > You can customize it all you want:
+
 ```go
 cli := rs.New(examples.GetRedis(), rs.Config{
     Sender: rs.SenderConfig{
         //Evicts entries as long as the stream's length exceeds the specified threshold
         MaxLen: rs.Int64(100),
-	},
+    },
 })
 ```
 
 ## Send a message
+
 ```go
 cli.Send("simple", rs.H{
     "title": "this a simple message",
@@ -39,6 +44,7 @@ cli.Send("order_status_change", rs.H{
 ```
 
 ## Receive message
+
 ```go
 package main
 
@@ -54,11 +60,11 @@ func main() {
 	cli := rs.New(examples.GetRedis(), rs.Config{
 		//default configuration for receiving messages
 		Receive: rs.ReceiveConfig{
-			Work:       rs.Int(10),       //Per stream goroutine number,
+			Work:       rs.Int(10),        //Per stream goroutine number,
 			Timeout:    time.Second * 300, //Retry after timeout
-			MaxRetries: rs.Int64(3),      //Max retries
-			ReadCount:  rs.Int64(50),     //XReadGroup Count
-			BlockTime:  time.Second * 20, //XReadGroup Block Time
+			MaxRetries: rs.Int64(3),       //Max retries
+			ReadCount:  rs.Int64(50),      //XReadGroup Count
+			BlockTime:  time.Second * 20,  //XReadGroup Block Time
 		},
 	})
 
@@ -96,6 +102,7 @@ func main() {
 	cli.Listen()
 }
 ```
+
 ```text
 2022/08/29 06:07:33 [RS] Stream "simple" working...                       BlockTime=20s MaxRetries=3 ReadCount=50 Timeout=20s Work=10
 2022/08/29 06:07:33 [RS] Stream "test" working...                         BlockTime=20s MaxRetries=3 ReadCount=50 Timeout=20s Work=10
@@ -106,8 +113,9 @@ func main() {
 ```
 
 > Graceful Shutdown
+
 ```go
-go func() {
+go func () {
     quit := make(chan os.Signal)
     signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
     <-quit
@@ -122,4 +130,5 @@ cli.Listen()
 > See [examples](/examples)
 
 ## License
+
 *MIT*
