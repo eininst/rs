@@ -59,7 +59,7 @@ type ReceiveConfig struct {
 }
 
 type SenderConfig struct {
-	MaxLen *int64
+	MaxLen *int64 `json:"maxLen"`
 }
 
 type Config struct {
