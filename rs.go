@@ -51,11 +51,11 @@ type Rctx struct {
 }
 
 type ReceiveConfig struct {
-	Work       *int
-	ReadCount  *int64
-	BlockTime  time.Duration
-	MaxRetries *int64
-	Timeout    time.Duration
+	Work       *int          `json:"work"`
+	ReadCount  *int64        `json:"readCount"`
+	BlockTime  time.Duration `json:"blockTime"`
+	MaxRetries *int64        `json:"maxRetries"`
+	Timeout    time.Duration `json:"timeout"`
 }
 
 type SenderConfig struct {
@@ -63,9 +63,9 @@ type SenderConfig struct {
 }
 
 type Config struct {
-	Prefix  string
-	Sender  SenderConfig
-	Receive ReceiveConfig
+	Prefix  string        `json:"prefix"`
+	Sender  SenderConfig  `json:"sender"`
+	Receive ReceiveConfig `json:"receive"`
 }
 type H map[string]interface{}
 
