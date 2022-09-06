@@ -21,7 +21,7 @@ cli := rs.New(rcli *redis.Client)
 ```go
 cli := rs.New(examples.GetRedis(), rs.Config{
     Sender: rs.SenderConfig{
-    //Evicts entries as long as the stream's length exceeds the specified threshold
+    	//Evicts entries as long as the stream's length exceeds the specified threshold
         MaxLen: rs.Int64(100),
     },
 })
@@ -108,7 +108,7 @@ func main() {
         Timeout:    time.Second * 120,
         MaxRetries: rs.Int64(6),
         Handler: func(ctx *rs.Context) {
-			defer ctx.Ack()
+	    defer ctx.Ack()
             orderId := ctx.Msg.Values["order_id"]
             flog.Info("received order_status_change msg:", orderId)
         },
