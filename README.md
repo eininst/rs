@@ -114,15 +114,6 @@ func main() {
         },
     })
 
-    go func() {
-        quit := make(chan os.Signal)
-        signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
-        <-quit
-
-        cli.Shutdown()
-        flog.Info("Graceful shutdown")
-    }()
-
     cli.Listen()
 }
 ```
