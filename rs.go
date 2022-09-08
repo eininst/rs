@@ -17,7 +17,7 @@ import (
 var runLog flog.Interface
 
 func init() {
-	f := fmt.Sprintf("${time} %s[RS]%s ${msg} # ${fields}", flog.Green, flog.Reset)
+	f := fmt.Sprintf("${level} ${time} %s[RS]%s ${msg} # ${fields}", flog.Green, flog.Reset)
 	runLog = flog.New(flog.Config{
 		Format: f,
 	})
