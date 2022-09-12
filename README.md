@@ -43,6 +43,17 @@ cli.Send("order_status_change", rs.H{
 })
 ```
 
+## Send a delay message
+```go
+cli.SendWithDelay("simple", rs.H{
+    "title": "this a delay message",
+}, time.Second*10)
+
+cli.SendWithTime("simple", rs.H{
+    "title": "this a timing message",
+}, time.Now().Add(time.Minute * 5))
+```
+
 ## Receive message
 
 ```go

@@ -18,9 +18,9 @@ func main() {
 		"title": "this a simple message",
 	})
 
-	cli.SendWithDelay("simple", rs.H{
+	cli.SendWithTime("simple", rs.H{
 		"title": "this a simple message2",
-	}, time.Second*10)
+	}, time.Now().Add(time.Minute*5))
 
 	cli.Send("test", rs.H{
 		"something": "hello word",
