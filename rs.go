@@ -507,7 +507,6 @@ func (c *client) zrangeByScore(ctx context.Context, rctx Rctx) {
 				if err.Error() == "NOSCRIPT No matching script. Please use EVAL." {
 					mux.Lock()
 					if !zgetAndRemHashUpdate {
-						flog.Warn("update zgetAndRemHash")
 						zhash, err := c.Rcli.ScriptLoad(ctx, zgetAndRem).Result()
 						if err != nil {
 							zgetAndRemHash = ""
