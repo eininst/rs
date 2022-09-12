@@ -543,7 +543,7 @@ func (c *client) zrangeByScore(ctx context.Context, rctx Rctx) {
 					Values: m,
 				}).Err()
 			} else {
-				time.Sleep(time.Millisecond * 500)
+				time.Sleep(c.Config.Receive.ZRangeInterval)
 			}
 		}
 	}
