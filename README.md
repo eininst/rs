@@ -20,6 +20,7 @@ cli := rs.New(rcli *redis.Client)
 
 ```go
 cli := rs.New(examples.GetRedis(), rs.Config{
+    Prefix: "customer_", //Default "RS_"
     Sender: rs.SenderConfig{
     	//Evicts entries as long as the stream's length exceeds the specified threshold
         MaxLen: rs.Int64(100),

@@ -8,6 +8,8 @@ import (
 
 func main() {
 	cli := rs.New(examples.GetRedis(), rs.Config{
+		//Default "RS_"
+		Prefix: "customer_",
 		Sender: rs.SenderConfig{
 			//Evicts entries as long as the stream's length exceeds the specified threshold
 			MaxLen: rs.Int64(100),
