@@ -54,11 +54,12 @@ type Rctx struct {
 }
 
 type ReceiveConfig struct {
-	Work       *int          `json:"work"`
-	ReadCount  *int64        `json:"readCount"`
-	BlockTime  time.Duration `json:"blockTime"`
-	MaxRetries *int64        `json:"maxRetries"`
-	Timeout    time.Duration `json:"timeout"`
+	Work           *int          `json:"work"`
+	ReadCount      *int64        `json:"readCount"`
+	BlockTime      time.Duration `json:"blockTime"`
+	MaxRetries     *int64        `json:"maxRetries"`
+	Timeout        time.Duration `json:"timeout"`
+	ZRangeInterval time.Duration `json:"zRangeInterval"`
 }
 
 type SenderConfig struct {
@@ -106,11 +107,12 @@ var (
 	mux               = &sync.Mutex{}
 	DefaultPrefix     = "RS_"
 	DefaultReceiveCfg = ReceiveConfig{
-		Work:       Int(10),
-		ReadCount:  Int64(20),
-		BlockTime:  time.Second * 15,
-		MaxRetries: Int64(3),
-		Timeout:    time.Second * 300,
+		Work:           Int(10),
+		ReadCount:      Int64(20),
+		BlockTime:      time.Second * 15,
+		MaxRetries:     Int64(3),
+		Timeout:        time.Second * 300,
+		ZRangeInterval: time.Millisecond * 500,
 	}
 	DefaultSenderConfig  = SenderConfig{MaxLen: nil}
 	zgetAndRemHash       = ""
@@ -145,6 +147,12 @@ func New(rcli *redis.Client, configs ...Config) Client {
 		if cfg.Receive.Timeout < time.Second*5 {
 			flog.Fatal(flog.Red + "ReceiveConfig Timeout Cannot be less than 5s")
 		}
+		if cfg.Receive.ZRangeInterval == 0 {
+			cfg.Receive.ZRangeInterval = DefaultReceiveCfg.ZRangeInterval
+		} else if cfg.Receive.ZRangeInterval < time.Millisecond*5 {
+			flog.Fatal(flog.Red + "ReceiveConfig ZRangeInterval Cannot be less than 5ms")
+		}
+
 	} else {
 		cfg = Config{
 			Prefix:  DefaultPrefix,
