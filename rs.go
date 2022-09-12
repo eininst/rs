@@ -11,6 +11,7 @@ import (
 	"github.com/ivpusic/grpool"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -92,7 +93,7 @@ type client struct {
 	stop        chan int
 }
 
-const ZGET_AND_REM = `
+const zgetAndRem = `
 local items = redis.call("zrangebyscore", KEYS[1],0,ARGV[1],"limit",0,1)
 if #items == 0 then
     return ""
@@ -102,6 +103,7 @@ else
 end`
 
 var (
+	mux               = &sync.Mutex{}
 	DefaultPrefix     = "RS_"
 	DefaultReceiveCfg = ReceiveConfig{
 		Work:       Int(10),
@@ -110,7 +112,9 @@ var (
 		MaxRetries: Int64(3),
 		Timeout:    time.Second * 300,
 	}
-	DefaultSenderConfig = SenderConfig{MaxLen: nil}
+	DefaultSenderConfig  = SenderConfig{MaxLen: nil}
+	zgetAndRemHash       = ""
+	zgetAndRemHashUpdate = false
 )
 
 func New(rcli *redis.Client, configs ...Config) Client {
@@ -293,9 +297,13 @@ func (c *client) Receive(rctx Rctx) {
 func (c *client) Listen() {
 	ctx := context.Background()
 
-	zhash, err := c.Rcli.ScriptLoad(ctx, ZGET_AND_REM).Result()
+	zhash, err := c.Rcli.ScriptLoad(ctx, zgetAndRem).Result()
 	if err != nil {
 		flog.Warn("[RS] Script load error:", err)
+	} else {
+		mux.Lock()
+		zgetAndRemHash = zhash
+		mux.Unlock()
 	}
 
 	for _, v := range c.receiveList {
@@ -313,7 +321,7 @@ func (c *client) Listen() {
 				pool:       pool,
 			})
 
-			go c.zrangeByScore(ctxls, rctx, zhash)
+			go c.zrangeByScore(ctxls, rctx)
 
 			go c.retries(ctxls, pool, consumerId, rctx)
 
@@ -405,6 +413,7 @@ func (c *client) retries(ctx context.Context, pool *grpool.Pool, consumerId stri
 				Count:  *rctx.ReadCount,
 			}).Result()
 			if err != nil {
+				flog.Error(err)
 				time.Sleep(time.Second * 3)
 				continue
 			}
@@ -478,7 +487,7 @@ func (c *client) retries(ctx context.Context, pool *grpool.Pool, consumerId stri
 	}
 }
 
-func (c *client) zrangeByScore(ctx context.Context, rctx Rctx, zhash string) {
+func (c *client) zrangeByScore(ctx context.Context, rctx Rctx) {
 	key := fmt.Sprintf("z_%s", rctx.Stream)
 	for {
 		select {
@@ -488,14 +497,34 @@ func (c *client) zrangeByScore(ctx context.Context, rctx Rctx, zhash string) {
 			val := strconv.FormatInt(time.Now().UnixMilli(), 10)
 			var r interface{}
 			var err error
-			if zhash != "" {
-				r, err = c.Rcli.EvalSha(ctx, zhash, []string{key}, []any{val}).Result()
+			if zgetAndRemHash != "" {
+				r, err = c.Rcli.EvalSha(ctx, zgetAndRemHash, []string{key}, []any{val}).Result()
 			} else {
-				r, err = c.Rcli.Eval(ctx, ZGET_AND_REM, []string{key}, []any{val}).Result()
+				r, err = c.Rcli.Eval(ctx, zgetAndRem, []string{key}, []any{val}).Result()
 			}
 			if err != nil {
-				time.Sleep(time.Second * 2)
-				continue
+				flog.Error(err)
+				if err.Error() == "NOSCRIPT No matching script. Please use EVAL." {
+					mux.Lock()
+					if !zgetAndRemHashUpdate {
+						flog.Warn("update zgetAndRemHash")
+						zhash, err := c.Rcli.ScriptLoad(ctx, zgetAndRem).Result()
+						if err != nil {
+							zgetAndRemHash = ""
+						} else {
+							zgetAndRemHash = zhash
+						}
+						zgetAndRemHashUpdate = true
+					}
+					mux.Unlock()
+
+					continue
+				} else {
+					zgetAndRemHashUpdate = false
+					time.Sleep(time.Second * 2)
+
+					continue
+				}
 			}
 			if reply := r.(string); reply != "" {
 				var m map[string]interface{}
