@@ -2,14 +2,14 @@ package rs
 
 import (
 	"context"
-	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/eininst/flog"
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/ivpusic/grpool"
-	"math/big"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -29,6 +29,8 @@ type Context struct {
 	Group      string
 	ConsumerId string
 	Msg        redis.XMessage
+	Client     *redis.Client
+	Delay      time.Duration
 	Ack        func()
 }
 type Handler func(ctx *Context)
@@ -71,6 +73,8 @@ type H map[string]interface{}
 
 type Client interface {
 	Send(stream string, msg map[string]interface{}) error
+	SendWithDelay(stream string, msg map[string]interface{}, delay time.Duration) error
+	SendWithTime(stream string, msg map[string]interface{}, datetime time.Time) error
 	Receive(rctx Rctx)
 	Listen()
 	Shutdown()
@@ -87,6 +91,15 @@ type client struct {
 	cancelList  []*cancelWrapper
 	stop        chan int
 }
+
+const ZGET_AND_REM = `
+local items = redis.call("zrangebyscore", KEYS[1],0,ARGV[1],"limit",0,1)
+if #items == 0 then
+    return ""
+else
+	redis.call('zremrangebyrank', KEYS[1],0,0)
+    return items[1]
+end`
 
 var (
 	DefaultPrefix     = "RS_"
@@ -157,13 +170,94 @@ func (c client) Send(stream string, msg map[string]interface{}) error {
 	if c.Sender.MaxLen != nil {
 		ml = *c.Sender.MaxLen
 	}
-	return c.Rcli.XAdd(context.TODO(), &redis.XAddArgs{
+
+	err := c.Rcli.XAdd(context.TODO(), &redis.XAddArgs{
 		Stream: fmt.Sprintf("%s%s", c.Prefix, stream),
 		MaxLen: ml,
 		Approx: true,
 		ID:     "*",
 		Values: msg,
 	}).Err()
+
+	if err != nil {
+		flog.Errorf("Send msg err by %v, err:%v", stream, err)
+	}
+	return err
+}
+
+func (c client) SendWithDelay(stream string, msg map[string]interface{}, delay time.Duration) error {
+	if msg == nil {
+		errMsg := fmt.Sprintf("Send msg Cannot be empty by Stream \"%s\"", stream)
+		flog.Error(errMsg)
+		return errors.New(errMsg)
+	}
+	if len(msg) == 0 {
+		errMsg := fmt.Sprintf("Send msg Cannot be empty by Stream \"%s\"", stream)
+		flog.Error(errMsg)
+		return errors.New(errMsg)
+	}
+	if delay == 0 {
+		errMsg := fmt.Sprintf("Delay Cannot be 0 by Stream \"%s\"", stream)
+		flog.Error(errMsg)
+		return errors.New(errMsg)
+	}
+
+	addr := fmt.Sprintf("z_%s%s", c.Prefix, stream)
+	msgb, er := json.Marshal(msg)
+	if er != nil {
+		errMsg := fmt.Sprintf("Send msg Cannot be Marshal by Stream \"%s\"", stream)
+		flog.Error(errMsg)
+	}
+
+	score := time.Now().UnixMilli() + int64(delay/1000000)
+	err := c.Rcli.ZAdd(context.TODO(), addr, &redis.Z{
+		Score:  float64(score),
+		Member: msgb,
+	}).Err()
+
+	if err != nil {
+		flog.Errorf("SendWithDelay err by %v, err:%v", stream, err)
+	}
+
+	return err
+}
+
+func (c client) SendWithTime(stream string, msg map[string]interface{}, datetime time.Time) error {
+	if msg == nil {
+		errMsg := fmt.Sprintf("Send msg Cannot be empty by Stream \"%s\"", stream)
+		flog.Error(errMsg)
+		return errors.New(errMsg)
+	}
+	if len(msg) == 0 {
+		errMsg := fmt.Sprintf("Send msg Cannot be empty by Stream \"%s\"", stream)
+		flog.Error(errMsg)
+		return errors.New(errMsg)
+	}
+
+	score := datetime.UnixMilli()
+	if score < time.Now().UnixMilli() {
+		errMsg := fmt.Sprintf("Datetime Cannot be less than or equal to the current time by \"%s\"", stream)
+		flog.Error(errMsg)
+		return errors.New(errMsg)
+	}
+
+	addr := fmt.Sprintf("z_%s%s", c.Prefix, stream)
+	msgb, er := json.Marshal(msg)
+	if er != nil {
+		errMsg := fmt.Sprintf("Send msg Cannot be Marshal by Stream \"%s\"", stream)
+		flog.Error(errMsg)
+	}
+
+	err := c.Rcli.ZAdd(context.TODO(), addr, &redis.Z{
+		Score:  float64(score),
+		Member: msgb,
+	}).Err()
+
+	if err != nil {
+		flog.Errorf("SendWithDelay err by %v, err:%v", stream, err)
+	}
+
+	return err
 }
 
 func (c *client) Receive(rctx Rctx) {
@@ -198,13 +292,19 @@ func (c *client) Receive(rctx Rctx) {
 
 func (c *client) Listen() {
 	ctx := context.Background()
+
+	zhash, err := c.Rcli.ScriptLoad(ctx, ZGET_AND_REM).Result()
+	if err != nil {
+		flog.Warn("[RS] Script load error:", err)
+	}
+
 	for _, v := range c.receiveList {
 		rctx := v
 
 		c.runInfoLog(rctx)
 		go func() {
 			c.Rcli.XGroupCreateMkStream(ctx, rctx.Stream, rctx.Group, "0")
-			pool := grpool.NewPool(*rctx.Work, *rctx.Work)
+			pool := grpool.NewPool(*rctx.Work, 0)
 			consumerId := uuid.NewString()
 			ctxls, cancel := context.WithCancel(ctx)
 
@@ -213,9 +313,10 @@ func (c *client) Listen() {
 				pool:       pool,
 			})
 
-			go func() {
-				c.retries(ctxls, pool, consumerId, rctx)
-			}()
+			go c.zrangeByScore(ctxls, rctx, zhash)
+
+			go c.retries(ctxls, pool, consumerId, rctx)
+
 			c.listenStream(ctxls, pool, consumerId, rctx)
 		}()
 
@@ -249,7 +350,12 @@ func (c *client) listenStream(ctx context.Context, pool *grpool.Pool, consumerId
 			}).Result()
 
 			if err != nil {
-				continue
+				if errors.Is(err, redis.Nil) {
+					continue
+				} else {
+					time.Sleep(time.Second * 2)
+					continue
+				}
 			}
 			if len(entries) == 0 {
 				continue
@@ -270,6 +376,7 @@ func (c *client) listenStream(ctx context.Context, pool *grpool.Pool, consumerId
 						Group:      rctx.Group,
 						ConsumerId: consumerId,
 						Msg:        msg,
+						Client:     c.Rcli,
 						Ack: func() {
 							_, e := c.Rcli.XAck(ctx, rctx.Stream, rctx.Group, msg.ID).Result()
 							if e == nil {
@@ -277,28 +384,18 @@ func (c *client) listenStream(ctx context.Context, pool *grpool.Pool, consumerId
 							}
 						},
 					})
-
 				}
 			}
 		}
 	}
 }
+
 func (c *client) retries(ctx context.Context, pool *grpool.Pool, consumerId string, rctx Rctx) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
-			n, _ := rand.Int(rand.Reader, big.NewInt(1000))
-			time.Sleep(time.Millisecond*500 + time.Duration(n.Int64()))
-
-			ok, er := c.Rcli.SetNX(ctx, c.Prefix+"retries:"+rctx.Stream, "1", time.Millisecond*1500).Result()
-			if er != nil {
-				continue
-			}
-			if !ok {
-				continue
-			}
 			pcmds, err := c.Rcli.XPendingExt(ctx, &redis.XPendingExtArgs{
 				Stream: rctx.Stream,
 				Group:  rctx.Group,
@@ -308,27 +405,50 @@ func (c *client) retries(ctx context.Context, pool *grpool.Pool, consumerId stri
 				Count:  *rctx.ReadCount,
 			}).Result()
 			if err != nil {
-				flog.Error("XPendingExt Error:", err)
+				time.Sleep(time.Second * 3)
 				continue
 			}
+			if len(pcmds) == 0 {
+				time.Sleep(time.Second)
+				continue
+			}
+
+			consumerMap := map[string][]string{}
 			xdel_ids := []string{}
+
 			for _, cmd := range pcmds {
 				if cmd.RetryCount > *rctx.MaxRetries {
 					xdel_ids = append(xdel_ids, cmd.ID)
 				} else {
-					xmsgs, err := c.Rcli.XRangeN(ctx, rctx.Stream, cmd.ID, cmd.ID, 1).Result()
-					if err != nil {
-						flog.Error("XRangeN Error:", err)
+					if v, ok := consumerMap[cmd.Consumer]; ok {
+						v = append(v, cmd.ID)
+						consumerMap[cmd.Consumer] = v
+					} else {
+						consumerMap[cmd.Consumer] = []string{cmd.ID}
 					}
-					if len(xmsgs) > 0 {
-						c.Rcli.XClaim(ctx, &redis.XClaimArgs{
-							Stream:   rctx.Stream,
-							Group:    rctx.Group,
-							Consumer: cmd.Consumer,
-							MinIdle:  0,
-							Messages: []string{cmd.ID},
-						})
-						msg := xmsgs[0]
+				}
+			}
+
+			if len(xdel_ids) > 0 {
+				c.Rcli.XAck(ctx, rctx.Stream, rctx.Group, xdel_ids...)
+				c.Rcli.XDel(ctx, rctx.Stream, xdel_ids...)
+			}
+
+			if len(consumerMap) > 0 {
+				for consumer, msgIds := range consumerMap {
+					xmsgs, er := c.Rcli.XClaim(ctx, &redis.XClaimArgs{
+						Stream:   rctx.Stream,
+						Group:    rctx.Group,
+						Consumer: consumer,
+						MinIdle:  rctx.Timeout,
+						Messages: msgIds,
+					}).Result()
+
+					if er != nil {
+						flog.Error("XRangeN Error:", er)
+					}
+
+					for _, msg := range xmsgs {
 						pool.JobQueue <- func() {
 							defer func() {
 								if err := recover(); err != nil {
@@ -341,6 +461,7 @@ func (c *client) retries(ctx context.Context, pool *grpool.Pool, consumerId stri
 								Stream:     rctx.Stream,
 								Group:      rctx.Group,
 								ConsumerId: consumerId,
+								Client:     c.Rcli,
 								Msg:        msg,
 								Ack: func() {
 									_, e := c.Rcli.XAck(ctx, rctx.Stream, rctx.Group, msg.ID).Result()
@@ -353,10 +474,40 @@ func (c *client) retries(ctx context.Context, pool *grpool.Pool, consumerId stri
 					}
 				}
 			}
+		}
+	}
+}
 
-			if len(xdel_ids) > 0 {
-				c.Rcli.XAck(ctx, rctx.Stream, rctx.Group, xdel_ids...)
-				c.Rcli.XDel(ctx, rctx.Stream, xdel_ids...)
+func (c *client) zrangeByScore(ctx context.Context, rctx Rctx, zhash string) {
+	key := fmt.Sprintf("z_%s", rctx.Stream)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			val := strconv.FormatInt(time.Now().UnixMilli(), 10)
+			var r interface{}
+			var err error
+			if zhash != "" {
+				r, err = c.Rcli.EvalSha(ctx, zhash, []string{key}, []any{val}).Result()
+			} else {
+				r, err = c.Rcli.Eval(ctx, ZGET_AND_REM, []string{key}, []any{val}).Result()
+			}
+			if err != nil {
+				time.Sleep(time.Second * 2)
+				continue
+			}
+			if reply := r.(string); reply != "" {
+				var m map[string]interface{}
+				_ = json.Unmarshal([]byte(reply), &m)
+				_ = c.Rcli.XAdd(ctx, &redis.XAddArgs{
+					Stream: rctx.Stream,
+					Approx: true,
+					ID:     "*",
+					Values: m,
+				}).Err()
+			} else {
+				time.Sleep(time.Millisecond * 500)
 			}
 		}
 	}

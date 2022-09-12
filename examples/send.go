@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/eininst/rs"
 	examples "github.com/eininst/rs/examples/redis"
+	"time"
 )
 
 func main() {
@@ -16,6 +17,10 @@ func main() {
 	cli.Send("simple", rs.H{
 		"title": "this a simple message",
 	})
+
+	cli.SendWithDelay("simple", rs.H{
+		"title": "this a simple message2",
+	}, time.Second*10)
 
 	cli.Send("test", rs.H{
 		"something": "hello word",

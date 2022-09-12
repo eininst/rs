@@ -15,11 +15,11 @@ func main() {
 	cli := rs.New(examples.GetRedis(), rs.Config{
 		//default configuration for receiving messages
 		Receive: rs.ReceiveConfig{
-			Work:       rs.Int(10),       //Per stream goroutine number,
-			Timeout:    time.Second * 20, //Retry after timeout
-			MaxRetries: rs.Int64(3),      //Max retries
-			ReadCount:  rs.Int64(50),     //XReadGroup Count
-			BlockTime:  time.Second * 20, //XReadGroup Block Time
+			Work:       rs.Int(10),        //Per stream goroutine number,
+			Timeout:    time.Second * 300, //Retry after timeout
+			MaxRetries: rs.Int64(5),       //Max retries
+			ReadCount:  rs.Int64(50),      //XReadGroup Count
+			BlockTime:  time.Second * 10,  //XReadGroup Block Time
 		},
 	})
 
@@ -27,8 +27,7 @@ func main() {
 		Stream: "simple",
 		Handler: func(ctx *rs.Context) {
 			defer ctx.Ack()
-			jstr, _ := json.Marshal(ctx.Msg.Values)
-			flog.Info("received simple msg:", string(jstr))
+			flog.Info(ctx.Msg)
 		},
 	})
 
