@@ -9,6 +9,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/ivpusic/grpool"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -381,7 +382,7 @@ func (c *client) listenStream(ctx context.Context, pool *grpool.Pool, consumerId
 				pool.JobQueue <- func() {
 					defer func() {
 						if err := recover(); err != nil {
-							flog.Errorf("subject:%v, err:%v", rctx.Stream, err)
+							flog.Errorf("subject:%v, err:%v, stack=%v\n", rctx.Stream, err, string(debug.Stack()))
 						}
 					}()
 
@@ -469,7 +470,7 @@ func (c *client) retries(ctx context.Context, pool *grpool.Pool, consumerId stri
 						pool.JobQueue <- func() {
 							defer func() {
 								if err := recover(); err != nil {
-									flog.Errorf("subject:%v, err:%v", rctx.Stream, err)
+									flog.Errorf("subject:%v, err:%v, stack=%v\n", rctx.Stream, err, string(debug.Stack()))
 								}
 							}()
 
