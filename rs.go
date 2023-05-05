@@ -9,6 +9,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/ivpusic/grpool"
+	"github.com/tidwall/gjson"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -31,6 +32,7 @@ type Context struct {
 	Group      string
 	ConsumerId string
 	Msg        redis.XMessage
+	JSON       gjson.Result
 	Client     *redis.Client
 	Delay      time.Duration
 	Ack        func()
@@ -387,12 +389,15 @@ func (c *client) listenStream(ctx context.Context, pool *grpool.Pool, consumerId
 					}()
 
 					ctx := context.Background()
+					value, _ := json.Marshal(msg.Values)
+
 					rctx.Handler(&Context{
 						Context:    ctx,
 						Stream:     rctx.Stream,
 						Group:      rctx.Group,
 						ConsumerId: consumerId,
 						Msg:        msg,
+						JSON:       gjson.ParseBytes(value),
 						Client:     c.Rcli,
 						Ack: func() {
 							_, e := c.Rcli.XAck(ctx, rctx.Stream, rctx.Group, msg.ID).Result()
@@ -474,6 +479,8 @@ func (c *client) retries(ctx context.Context, pool *grpool.Pool, consumerId stri
 								}
 							}()
 
+							value, _ := json.Marshal(msg.Values)
+
 							rctx.Handler(&Context{
 								Context:    context.Background(),
 								Stream:     rctx.Stream,
@@ -481,6 +488,7 @@ func (c *client) retries(ctx context.Context, pool *grpool.Pool, consumerId stri
 								ConsumerId: consumerId,
 								Client:     c.Rcli,
 								Msg:        msg,
+								JSON:       gjson.ParseBytes(value),
 								Ack: func() {
 									_, e := c.Rcli.XAck(ctx, rctx.Stream, rctx.Group, msg.ID).Result()
 									if e == nil {
