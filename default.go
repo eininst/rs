@@ -9,7 +9,7 @@ import (
 var cli Client
 var once sync.Once
 
-func Init(rcli *redis.Client, configs ...Config) {
+func Default(rcli *redis.Client, configs ...Config) {
 	once.Do(func() {
 		cli = New(rcli, configs...)
 	})
