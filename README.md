@@ -1,7 +1,5 @@
 # RS
 
-[![Build Status](https://travis-ci.org/ivpusic/grpool.svg?branch=master)](https://github.com/infinitasx/easi-go-aws)
-
 `RS` Is a message queue for redis streams
 
 ## ⚙ Installation
