@@ -142,7 +142,7 @@ var (
 		Timeout:        time.Second * 300,
 		ZRangeInterval: time.Millisecond * 500,
 	}
-	DefaultSenderConfig  = SenderConfig{MaxLen: nil}
+	DefaultSenderConfig  = SenderConfig{MaxLen: Int64(10240)}
 	zgetAndRemHash       = ""
 	zgetAndRemHashUpdate = false
 )
@@ -156,31 +156,35 @@ func New(rcli *redis.Client, configs ...Config) Client {
 		}
 		if cfg.Sender == (SenderConfig{}) {
 			cfg.Sender = DefaultSenderConfig
+		} else {
+			if cfg.Sender.MaxLen == nil {
+				cfg.Sender.MaxLen = DefaultSenderConfig.MaxLen
+			}
 		}
 		if cfg.Receive == (ReceiveConfig{}) {
 			cfg.Receive = DefaultReceiveCfg
+		} else {
+			if cfg.Receive.Work == nil {
+				cfg.Receive.Work = DefaultReceiveCfg.Work
+			}
+			if cfg.Receive.ReadCount == nil {
+				cfg.Receive.ReadCount = DefaultReceiveCfg.ReadCount
+			}
+			if cfg.Receive.BlockTime == 0 {
+				cfg.Receive.BlockTime = DefaultReceiveCfg.BlockTime
+			}
+			if cfg.Receive.Timeout == 0 {
+				cfg.Receive.Timeout = DefaultReceiveCfg.Timeout
+			}
+			if cfg.Receive.Timeout < time.Second*5 {
+				flog.Fatal(flog.Red + "ReceiveConfig Timeout Cannot be less than 5s")
+			}
+			if cfg.Receive.ZRangeInterval == 0 {
+				cfg.Receive.ZRangeInterval = DefaultReceiveCfg.ZRangeInterval
+			} else if cfg.Receive.ZRangeInterval < time.Millisecond*5 {
+				flog.Fatal(flog.Red + "ReceiveConfig ZRangeInterval Cannot be less than 5ms")
+			}
 		}
-		if cfg.Receive.Work == nil {
-			flog.Fatal(flog.Red + "ReceiveConfig Work cannot be empty")
-		}
-		if cfg.Receive.ReadCount == nil {
-			flog.Fatal(flog.Red + "ReceiveConfig ReadCount cannot be empty")
-		}
-		if cfg.Receive.BlockTime == 0 {
-			flog.Fatal(flog.Red + "ReceiveConfig BlockTime cannot be empty")
-		}
-		if cfg.Receive.Timeout == 0 {
-			flog.Fatal(flog.Red + "ReceiveConfig Timeout cannot be empty")
-		}
-		if cfg.Receive.Timeout < time.Second*5 {
-			flog.Fatal(flog.Red + "ReceiveConfig Timeout Cannot be less than 5s")
-		}
-		if cfg.Receive.ZRangeInterval == 0 {
-			cfg.Receive.ZRangeInterval = DefaultReceiveCfg.ZRangeInterval
-		} else if cfg.Receive.ZRangeInterval < time.Millisecond*5 {
-			flog.Fatal(flog.Red + "ReceiveConfig ZRangeInterval Cannot be less than 5ms")
-		}
-
 	} else {
 		cfg = Config{
 			Prefix:  DefaultPrefix,
