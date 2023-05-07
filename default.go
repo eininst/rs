@@ -27,6 +27,10 @@ func SendWithTime(stream string, msg map[string]interface{}, datetime time.Time)
 	return cli.SendWithTime(stream, msg, datetime)
 }
 
+func CronSend(spec string, stream string) {
+	cli.CronSend(spec, stream)
+}
+
 func Receive(rctx Rctx) {
 	cli.Receive(rctx)
 }

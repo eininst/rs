@@ -1,6 +1,9 @@
 package rs
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 // Time 复制 time.Time 对象，并返回复制体的指针
 func Time(t time.Time) *time.Time {
@@ -39,4 +42,11 @@ func Int32(i int32) *int32 {
 
 func Int(i int) *int {
 	return &i
+}
+
+func ToMap(data interface{}) map[string]interface{} {
+	_bytes, _ := json.Marshal(data)
+	result := map[string]interface{}{}
+	_ = json.Unmarshal(_bytes, &result)
+	return result
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/ivpusic/grpool"
+	"github.com/robfig/cron/v3"
 	"github.com/tidwall/gjson"
 	"runtime/debug"
 	"strconv"
@@ -80,6 +81,8 @@ type Client interface {
 	Send(stream string, msg map[string]interface{}) error
 	SendWithDelay(stream string, msg map[string]interface{}, delay time.Duration) error
 	SendWithTime(stream string, msg map[string]interface{}, datetime time.Time) error
+	CronSend(spec string, stream string)
+
 	Receive(rctx Rctx)
 	Listen()
 	Shutdown()
@@ -89,12 +92,14 @@ type cancelWrapper struct {
 	cancelFunc context.CancelFunc
 	pool       *grpool.Pool
 }
+
 type client struct {
 	Rcli *redis.Client
 	Config
 	receiveList []Rctx
 	cancelList  []*cancelWrapper
 	stop        chan int
+	cronCli     *cron.Cron
 }
 
 const zgetAndRem = `
@@ -168,8 +173,33 @@ func New(rcli *redis.Client, configs ...Config) Client {
 		Config:      cfg,
 		receiveList: []Rctx{},
 		stop:        make(chan int, 1),
+		cronCli:     cron.New(cron.WithSeconds()),
 	}
 }
+
+func (c client) CronSend(spec string, stream string) {
+	key := fmt.Sprintf("cron_lock:%v", stream)
+	_, er := c.cronCli.AddFunc(spec, func() {
+		_ctx := context.Background()
+		ok, er := c.Rcli.SetNX(_ctx, key, "1", time.Second).Result()
+		if er != nil {
+			flog.Errorf(`SetNX key: "%s", Error: %v`, key, er)
+			return
+		}
+		if ok {
+			err := c.Send(stream, H{
+				"nonce": uuid.NewString(),
+			})
+			if err != nil {
+				flog.Error(er)
+			}
+		}
+	})
+	if er != nil {
+		flog.Fatal(er)
+	}
+}
+
 func (c client) Send(stream string, msg map[string]interface{}) error {
 	if msg == nil {
 		errMsg := fmt.Sprintf("Send msg Cannot be empty by Stream \"%s\"", stream)
@@ -307,7 +337,6 @@ func (c *client) Receive(rctx Rctx) {
 
 func (c *client) Listen() {
 	ctx := context.Background()
-
 	zhash, err := c.Rcli.ScriptLoad(ctx, zgetAndRem).Result()
 	if err != nil {
 		flog.Warn("[RS] Script load error:", err)
@@ -338,8 +367,9 @@ func (c *client) Listen() {
 
 			c.listenStream(ctxls, pool, consumerId, rctx)
 		}()
-
 	}
+	c.cronCli.Start()
+
 	<-c.stop
 }
 
