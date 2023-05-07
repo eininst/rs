@@ -142,7 +142,7 @@ var (
 		Timeout:        time.Second * 300,
 		ZRangeInterval: time.Millisecond * 500,
 	}
-	DefaultSenderConfig  = SenderConfig{MaxLen: Int64(10240)}
+	DefaultSenderConfig  = SenderConfig{MaxLen: Int64(2048)}
 	zgetAndRemHash       = ""
 	zgetAndRemHashUpdate = false
 )
