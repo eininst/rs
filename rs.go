@@ -46,6 +46,25 @@ type Msg struct {
 	MaxLen *int64
 }
 
+type Option struct {
+	F func(o *Options)
+}
+
+type Options struct {
+	Group      string
+	Work       *int
+	ReadCount  *int64
+	BlockTime  time.Duration
+	MaxRetries *int64
+	Timeout    time.Duration
+}
+
+func (o *Options) Apply(opts []Option) {
+	for _, op := range opts {
+		op.F(o)
+	}
+}
+
 type Rctx struct {
 	Stream     string
 	Group      string
@@ -83,6 +102,7 @@ type Client interface {
 	SendWithTime(stream string, msg map[string]interface{}, datetime time.Time) error
 	CronSend(spec string, stream string)
 
+	Handler(stream string, handler Handler, opts ...Option)
 	Receive(rctx Rctx)
 	Listen()
 	Shutdown()
@@ -305,6 +325,29 @@ func (c client) SendWithTime(stream string, msg map[string]interface{}, datetime
 	return err
 }
 
+func (c *client) Handler(stream string, handler Handler, opts ...Option) {
+	options := &Options{
+		Group:      "",
+		Work:       c.Config.Receive.Work,
+		ReadCount:  c.Config.Receive.ReadCount,
+		BlockTime:  c.Config.Receive.BlockTime,
+		MaxRetries: c.Config.Receive.MaxRetries,
+		Timeout:    c.Config.Receive.Timeout,
+	}
+	options.Apply(opts)
+
+	c.Receive(Rctx{
+		Stream:     stream,
+		Handler:    handler,
+		Group:      options.Group,
+		Work:       options.Work,
+		ReadCount:  options.ReadCount,
+		BlockTime:  options.BlockTime,
+		MaxRetries: options.MaxRetries,
+		Timeout:    options.Timeout,
+	})
+}
+
 func (c *client) Receive(rctx Rctx) {
 	if rctx.Stream == "" {
 		flog.Panic("Receive Stream cannot be empty")
@@ -381,6 +424,46 @@ func (c *client) Shutdown() {
 	for _, v := range c.cancelList {
 		v.pool.Release()
 	}
+}
+
+func WithGroup(group string) Option {
+	return Option{F: func(o *Options) {
+		o.Group = group
+	}}
+}
+
+func WithWork(work int) Option {
+	return Option{F: func(o *Options) {
+		o.Work = Int(work)
+	}}
+}
+
+func WithReadCount(readCount int64) Option {
+	return Option{F: func(o *Options) {
+		o.ReadCount = Int64(readCount)
+	}}
+}
+
+func WithBlockTime(blockTime time.Duration) Option {
+	return Option{F: func(o *Options) {
+		o.BlockTime = blockTime
+	}}
+}
+
+func WithMaxRetries(maxRetries int64) Option {
+	return Option{F: func(o *Options) {
+		if maxRetries == 0 {
+			o.MaxRetries = nil
+		} else {
+			o.MaxRetries = Int64(maxRetries)
+		}
+	}}
+}
+
+func WithTimeout(timeout time.Duration) Option {
+	return Option{F: func(o *Options) {
+		o.Timeout = timeout
+	}}
 }
 
 func (c *client) listenStream(ctx context.Context, pool *grpool.Pool, consumerId string, rctx Rctx) {

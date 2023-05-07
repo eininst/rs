@@ -80,6 +80,11 @@ func main() {
         },
     })
 
+    cli.Handler("simple", func(ctx *rs.Context) {
+        defer ctx.Ack()
+        flog.Info(ctx.JSON.Raw)
+    })
+
     cli.Receive(rs.Rctx{
         Stream: "simple",
         Handler: func(ctx *rs.Context) {

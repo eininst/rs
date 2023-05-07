@@ -14,7 +14,7 @@ func main() {
 		},
 	})
 
-	cli.Send("test", rs.H{
+	cli.Send("simple", rs.H{
 		"title": "this a simple message",
 	})
 	//
