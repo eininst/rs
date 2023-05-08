@@ -31,6 +31,10 @@ func CronSend(spec string, stream string) {
 	cli.CronSend(spec, stream)
 }
 
+func Handler(stream string, call Call, opts ...Option) {
+	cli.Handler(stream, call, opts...)
+}
+
 func Receive(rctx Rctx) {
 	cli.Receive(rctx)
 }

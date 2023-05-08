@@ -38,7 +38,7 @@ type Context struct {
 	Delay      time.Duration
 	Ack        func()
 }
-type Handler func(ctx *Context)
+type Call func(ctx *Context)
 
 type Msg struct {
 	Stream string
@@ -73,7 +73,7 @@ type Rctx struct {
 	BlockTime  time.Duration
 	MaxRetries *int64
 	Timeout    time.Duration
-	Handler    Handler
+	Handler    Call
 }
 
 type ReceiveConfig struct {
@@ -102,7 +102,7 @@ type Client interface {
 	SendWithTime(stream string, msg map[string]interface{}, datetime time.Time) error
 	CronSend(spec string, stream string)
 
-	Handler(stream string, handler Handler, opts ...Option)
+	Handler(stream string, call Call, opts ...Option)
 	Receive(rctx Rctx)
 	Listen()
 	Shutdown()
@@ -329,7 +329,7 @@ func (c client) SendWithTime(stream string, msg map[string]interface{}, datetime
 	return err
 }
 
-func (c *client) Handler(stream string, handler Handler, opts ...Option) {
+func (c *client) Handler(stream string, call Call, opts ...Option) {
 	options := &Options{
 		Group:      "",
 		Work:       c.Config.Receive.Work,
@@ -342,7 +342,7 @@ func (c *client) Handler(stream string, handler Handler, opts ...Option) {
 
 	c.Receive(Rctx{
 		Stream:     stream,
-		Handler:    handler,
+		Handler:    call,
 		Group:      options.Group,
 		Work:       options.Work,
 		ReadCount:  options.ReadCount,
