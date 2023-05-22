@@ -11,10 +11,13 @@ import (
 	"github.com/ivpusic/grpool"
 	"github.com/robfig/cron/v3"
 	"github.com/tidwall/gjson"
+	"os"
+	"os/signal"
 	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -380,6 +383,18 @@ func (c *client) Receive(rctx Rctx) {
 
 	rctx.Stream = fmt.Sprintf("%s%s", c.Prefix, rctx.Stream)
 	c.receiveList = append(c.receiveList, rctx)
+}
+
+func (c *client) Start() {
+	go func() {
+		quit := make(chan os.Signal)
+		signal.Notify(quit, syscall.SIGINT, syscall.SIGHUP, syscall.SIGTERM)
+		<-quit
+		flog.Info("Start shutdown...")
+		cli.Shutdown()
+		flog.Info("Graceful shutdown success!")
+	}()
+	c.Listen()
 }
 
 func (c *client) Listen() {

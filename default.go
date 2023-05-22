@@ -15,6 +15,10 @@ func SetDefault(rcli *redis.Client, configs ...Config) {
 	})
 }
 
+func SetDefaultByClient(client Client) {
+	cli = client
+}
+
 func Send(stream string, msg map[string]interface{}) error {
 	return cli.Send(stream, msg)
 }
