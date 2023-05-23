@@ -50,3 +50,7 @@ func Listen() {
 func Shutdown() {
 	cli.Shutdown()
 }
+
+func Start() {
+	cli.Start()
+}

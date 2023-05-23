@@ -109,6 +109,7 @@ type Client interface {
 	Receive(rctx Rctx)
 	Listen()
 	Shutdown()
+	Start()
 }
 
 type cancelWrapper struct {
